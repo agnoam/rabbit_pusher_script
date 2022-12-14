@@ -9,7 +9,7 @@ class Arguments:
     # timeout: int
 
     # AWS configurations
-    aws_host: str
+    aws_uri: str
     aws_access_key: str
     aws_secret_key: str
     

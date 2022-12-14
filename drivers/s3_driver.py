@@ -3,21 +3,22 @@ import os
 from typing import Any
 
 import boto3
-from boto3_type_annotations.s3 import Client
+from boto3_type_annotations.s3 import Client, ServiceResource, Bucket
 from constants.s3_constants import EnvKeys
 
 # from dotenv import load_dotenv
 # load_dotenv() # Take environment variables from .env
 
-class S3Config:
-    S3: Client = None
+class S3Driver:
+    S3: ServiceResource = None
+    client: Client = None
 
     @staticmethod
     def initialize_s3(uri: str = None, access_key_id: str = None, secret_access_key: str = None) -> None:
         """
             Initialize S3 connection - Creating the client object that communicates with the S3
         """
-        if S3Config.S3 is None: 
+        if S3Driver.S3 is None: 
             if uri is None:
                 uri = str(os.getenv(EnvKeys.AWS_URI))
 
@@ -27,12 +28,22 @@ class S3Config:
             if secret_access_key is None:
                 secret_access_key = str(os.getenv(EnvKeys.AWS_SECRET_ACCESS_KEY))
 
-            S3Config.S3 = boto3.client(
+            S3Driver.S3 = boto3.resource(
                 's3',
                 aws_access_key_id = access_key_id,
                 aws_secret_access_key = secret_access_key,
                 endpoint_url = uri
             )
+            S3Driver.client = boto3.resource(
+                's3',
+                aws_access_key_id = access_key_id,
+                aws_secret_access_key = secret_access_key,
+                endpoint_url = uri
+            )
+
+
+    def get_bucket(bucket_name) -> Bucket:
+        return S3Driver._resource.Bucket(bucket_name)
 
 class S3Path:
     def __init__(self, bucket: str, key: str, https: bool = False, host: str = 'localhost', port: int = 4569) -> None:
