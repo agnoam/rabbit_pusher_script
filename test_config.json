@@ -1,13 +1,13 @@
 {
     "aws": {
-        "uri": "http://<host-or-ip>:<port>",
-        "secret_key": "<secret_key>",
-        "access_key": "<access_key>"
+        "uri": "http://10.0.0.10:30040",
+        "secret_key": "integration",
+        "access_key": "integration"
     },
     "rabbit": {
-        "host": "<host-or-ip>",
-        "port": "<port>",
-        "user": "<username>",
-        "password": "<password>"
+        "host": "10.0.0.11",
+        "port": "30007",
+        "user": "admin",
+        "password": "admin"
     }
 }
