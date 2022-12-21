@@ -59,13 +59,13 @@ def load_arguments() -> Arguments:
     parser.add_argument(
         '-b', '--bucket', 
         type=str,
-        # required=True,
+        required=True,
         help='Bucket to run of'
     )
     parser.add_argument(
         '-pq', '--publish-queue',
         type=str,
-        # required=True,
+        required=True,
         help='Publish queue to publish messages to'
     )
     parser.add_argument(
@@ -107,8 +107,7 @@ def load_arguments() -> Arguments:
 
     return parser.parse_args()
 
-# TODO: Delete default type before deploy
-def load_all_objects(bucket_name: str = 'clustering-test') -> list[ObjectSummary]:
+def load_all_objects(bucket_name: str) -> list[ObjectSummary]:
     """
         Load all objects
         args:
@@ -165,13 +164,10 @@ def main(args: Arguments) -> None:
     """
     if args.config_file != None:
         config = read_config_file(args.config_file)
-    # TODO: Fix this before send
     else:
         config = args_to_config()
 
     initialization(config)
-
-    # TODO: Load all the objects from the bucket (in thread)
     all_objs: list = load_all_objects()
 
     # Push all the objects into `publish_queue`
