@@ -1,16 +1,26 @@
 import argparse
+import json
 import os
+import sys
 
+from pika import BlockingConnection
+from pika.channel import Channel
+from boto3_type_annotations.s3 import ObjectSummary
+
+from drivers.rabbit_driver import initialize_connection
 from drivers.s3_driver import S3Driver
 from models.arguments_model import Arguments
-from models.configs_model import CredsConfig
+from models.configs_model import AWSConfig, CredsConfig, RabbitConfig
 
+TO_PUSH: list = []
 TOTAL_OBJECTS_PUSHED: int = 0
-TOTAL_MESSAGES_READ: int = 0
+TOTAL_OBJECTS_READ: int = 0
 STARTING_TIME: int = 0
+rabbit_connection: BlockingConnection = None
 
 def load_env_variables() -> None:
     """
+        Loading env variables
     """
     from dotenv import load_dotenv
     load_dotenv()
@@ -98,7 +108,7 @@ def load_arguments() -> Arguments:
     return parser.parse_args()
 
 # TODO: Delete default type before deploy
-def load_all_objects(bucket_name: str = 'in-progress') -> list:
+def load_all_objects(bucket_name: str = 'clustering-test') -> list[ObjectSummary]:
     """
         Load all objects
         args:
@@ -107,12 +117,12 @@ def load_all_objects(bucket_name: str = 'in-progress') -> list:
             list - List of all objects
     """
     try:
+        all_objects: list[ObjectSummary] = []
         bucket = S3Driver.S3.Bucket(bucket_name)
-        counter: int = 0
         for obj in bucket.objects.all():
-            counter += 1
-            print('current obj', counter)
-        print('all_objects are:', counter)
+            all_objects.append(obj)
+
+        return all_objects
     except Exception as e:
         print(e)
 
@@ -120,9 +130,33 @@ def initialization(configs: CredsConfig) -> None:
     """
         Initialize all connections
     """
-    S3Driver.initialize_s3(configs.aws.uri, configs.aws.access_key, configs.aws.secret_key)
-    print('S3 initialized')
-    # pass
+    global rabbit_connection
+
+    if configs.aws.uri:
+        S3Driver.initialize_s3(configs.aws.uri, configs.aws.access_key, configs.aws.secret_key)
+        print('S3 initialized')
+    
+    if configs.rabbit.host:
+        rabbit_connection = initialize_connection(configs)
+
+def publish_to_queue(data, queue_name: str, exchange: str='') -> None:
+    """
+        Publish data to rabbitmq queue
+    """
+    global rabbit_connection
+
+    channel: Channel = rabbit_connection.channel()
+    channel.queue_declare(queue_name) # Creates the queue in case it not already 
+    channel.basic_publish(exchange, routing_key=queue_name, body=json.dumps(data))
+
+def gen_url_from_ref(storage_host_url: str, ref: ObjectSummary) -> str:
+    return f"{storage_host_url}/{ref.bucket_name}/{ref.key}"
+
+def args_to_config(args: Arguments) -> CredsConfig:
+    aws = AWSConfig(args.aws_uri, args.aws_access_key, args.aws_secret_key)
+    rabbit = RabbitConfig(args.rabbit_host, args.rabbit_port, args.rabbit_user, args.rabbit_password)
+
+    return CredsConfig(aws, rabbit)
 
 
 def main(args: Arguments) -> None:
@@ -131,21 +165,33 @@ def main(args: Arguments) -> None:
     """
     if args.config_file != None:
         config = read_config_file(args.config_file)
-        initialization(config)
+    # TODO: Fix this before send
+    else:
+        config = args_to_config()
 
-    # Load all the objects from the bucket
-    load_all_objects()
+    initialization(config)
+
+    # TODO: Load all the objects from the bucket (in thread)
+    all_objs: list = load_all_objects()
 
     # Push all the objects into `publish_queue`
-    # publish_to_queue()
+    for obj in all_objs:
+        publish_to_queue({
+            'imageUrl': gen_url_from_ref(config.aws.uri, obj)
+        }, args.publish_queue)
 
     # Read the messages from `results_queue`
     # read_from_queue()
 
 if __name__ == '__main__':
-    args: Arguments = load_arguments()
-    
-    # TODO: Delete before deployment
-    args.config_file = 'test_config.json'
+    try:
+        args: Arguments = load_arguments()
+        main(args)
 
-    main(args)
+    except KeyboardInterrupt:
+        print('Interrupted')
+        try:
+            # TODO: Close rabbitmq connection and stop all threads
+            sys.exit(0)
+        except SystemExit:
+            os._exit()

@@ -1,11 +1,11 @@
 {
     "aws": {
-        "uri": "<http|s>:<ip-or-host>:<port>",
+        "uri": "http://<host-or-ip>:<port>",
         "secret_key": "<secret_key>",
         "access_key": "<access_key>"
     },
     "rabbit": {
-        "host": "<ip-or-host>",
+        "host": "<host-or-ip>",
         "port": "<port>",
         "user": "<username>",
         "password": "<password>"
