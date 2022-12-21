@@ -104,6 +104,16 @@ def load_arguments() -> Arguments:
         # required=True,
         help='Rabbit port'
     )
+    parser.add_argument(
+        '-ru', '--rabbit-user',
+        type=str,
+        help='Rabbit username'
+    )
+    parser.add_argument(
+        '-rps', '--rabbit-password',
+        type=str,
+        help='Rabbit user password'
+    )
 
     return parser.parse_args()
 
@@ -165,10 +175,10 @@ def main(args: Arguments) -> None:
     if args.config_file != None:
         config = read_config_file(args.config_file)
     else:
-        config = args_to_config()
+        config = args_to_config(args)
 
     initialization(config)
-    all_objs: list = load_all_objects()
+    all_objs: list = load_all_objects(args.bucket)
 
     # Push all the objects into `publish_queue`
     for obj in all_objs:
@@ -187,7 +197,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('Interrupted')
         try:
-            # TODO: Close rabbitmq connection and stop all threads
             sys.exit(0)
         except SystemExit:
             os._exit()
